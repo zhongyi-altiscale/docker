@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path"
 	"strings"
+        "net"
 
 	"github.com/dotcloud/docker/nat"
 	"github.com/dotcloud/docker/opts"
@@ -175,11 +176,22 @@ func parseRun(cmd *flag.FlagSet, args []string, sysInfo *sysinfo.SysInfo) (*Conf
 	var (
 		domainname string
 		hostname   = *flHostname
-		parts      = strings.SplitN(hostname, ".", 2)
+		parts      = strings.SplitN(hostname, ":", 2)
+                ipaddress  string
+                hostparts  []string
 	)
+	// hostname could contain designated ipaddress
 	if len(parts) > 1 {
-		hostname = parts[0]
-		domainname = parts[1]
+		hostname   = parts[0]
+		ip         := net.ParseIP(parts[1])
+                if ip != nil {
+			ipaddress = parts[1]
+		}
+		hostparts  = strings.SplitN(hostname, ".", 2)
+	}
+	if len(hostparts) > 1 {
+		hostname = hostparts[0]
+		domainname = hostparts[1]
 	}
 
 	ports, portBindings, err := nat.ParsePortSpecs(flPublish.GetAll())
@@ -230,6 +242,7 @@ func parseRun(cmd *flag.FlagSet, args []string, sysInfo *sysinfo.SysInfo) (*Conf
 	config := &Config{
 		Hostname:        hostname,
 		Domainname:      domainname,
+		IPAddress:       ipaddress,
 		PortSpecs:       nil, // Deprecated
 		ExposedPorts:    ports,
 		User:            *flUser,
